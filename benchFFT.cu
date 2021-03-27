@@ -1,6 +1,7 @@
 #include <cufft.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #define cufftSafeCall(err) __cufftSafeCall (err, __FILE__, __LINE__)
 
@@ -38,9 +39,9 @@ inline void __cufftSafeCall (cufftResult err, const char * file, const int line)
 int main (int argc, char * argv[])
 {
 
-  if (argc < 8)
+  if (argc < 9)
     {
-      fprintf (stderr, "Usage: %s N LOT istride ostride idist odist\n", argv[0]);
+      fprintf (stderr, "Usage: %s N LOT istride ostride idist odist llprint kfunc\n", argv[0]);
       return 1;
     }
 
@@ -51,6 +52,10 @@ int main (int argc, char * argv[])
   int idist   = atoi (argv[5]);
   int odist   = atoi (argv[6]);
   int llprint = atoi (argv[7]);
+  int kfunc   = atoi (argv[8]);
+
+  assert ((istride == 1) || (idist == 1));
+  assert ((ostride == 1) || (odist == 1));
 
   cufftHandle plan;
 
@@ -75,38 +80,69 @@ int main (int argc, char * argv[])
       return 1;	
     }
 
-  double * z = (double *)malloc (sizeof (double) * LOT * idist);
-
-  for (int j = 0; j < LOT; j++)
-  for (int i = 0; i < idist; i++)
-    z[j*idist+i] = (i >= N) ? 9999. : (i %2) ? +1. : -1.;
+  size_t sz = LOT * idist + N * istride + 2 * LOT;
 
   if (llprint)
+    printf (" sz = %ld\n", sz);
+
+  double * z = (double *)malloc (sz * sizeof (double));
+
+  for (int i = 0; i < sz; i++)
+    z[i] = 9999.;
+
+
+  for (int j = 0; j < LOT; j++)
+  for (int i = 0; i < N; i++)
+    {
+      double zval = 0.;
+      switch (kfunc)
+        {
+          case 1: zval = (i % 4) ? +1. : -1.; break;
+          case 2: zval = (i % 2) ? +1. : -1.; break;
+          default: zval = 1.;
+        }
+      z[j*idist+i*istride] = zval;
+    }
+
+
+  if (llprint == 1)
   for (int j = 0; j < LOT; j++)
     {
-      for (int i = 0; i < idist; i++)
-        printf (" %8.1f", z[j*idist+i]);
+      for (int i = 0; i < N+2; i++)
+        printf (" %8.1f", z[j*idist+i*istride]);
       printf ("\n");
+    }
+
+  if (llprint == 2)
+  for (int i = 0; i < sz; i++)
+    {
+      printf (" %8.1f", z[i]);
+      if ((((i + 1) % 20) == 0) || (i == sz - 1)) printf ("\n");
     }
 
   cufftDoubleComplex * data = NULL;
 
-  size_t sz = sizeof (double) * LOT * idist;
+  cudaMalloc ((void**)&data, sz * sizeof (double));
 
-  cudaMalloc ((void**)&data, sz);
-
-  cudaMemcpy (data, z, sz, cudaMemcpyHostToDevice);
+  cudaMemcpy (data, z, sz * sizeof (double), cudaMemcpyHostToDevice);
 
   cufftSafeCall (cufftExecD2Z (plan, (cufftDoubleReal*)data, data));
 
-  cudaMemcpy (z, data, sz, cudaMemcpyDeviceToHost);
+  cudaMemcpy (z, data, sz * sizeof (double), cudaMemcpyDeviceToHost);
 
-  if (llprint)
+  if (llprint == 1)
   for (int j = 0; j < LOT; j++)
     {
-      for (int i = 0; i < idist; i++)
-        printf (" %8.1f", z[j*idist+i]);
+      for (int i = 0; i < N+2; i++)
+        printf (" %8.1f", z[j*idist+i*istride]);
       printf ("\n");
+    }
+
+  if (llprint == 2)
+  for (int i = 0; i < sz; i++)
+    {
+      printf (" %8.1f", z[i]);
+      if ((((i + 1) % 20) == 0) || (i == sz - 1)) printf ("\n");
     }
 
 
