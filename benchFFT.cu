@@ -80,10 +80,11 @@ int main (int argc, char * argv[])
     z[j*idist+i] = (i >= N) ? 9999. : (i %2) ? +1. : -1.;
 
   for (int j = 0; j < LOT; j++)
-  for (int i = 0; i < idist; i++)
-    printf (" %2d %2d %12.4f\n", j, i, z[j*idist+i]);
-
-  printf ("------------\n");
+    {
+      for (int i = 0; i < idist; i++)
+        printf (" %8.1f", z[j*idist+i]);
+      printf ("\n");
+    }
 
   cufftDoubleComplex * data = NULL;
 
@@ -98,8 +99,11 @@ int main (int argc, char * argv[])
   cudaMemcpy (z, data, sz, cudaMemcpyDeviceToHost);
 
   for (int j = 0; j < LOT; j++)
-  for (int i = 0; i < idist; i++)
-    printf (" %2d %2d %12.4f\n", j, i, z[j*idist+i]);
+    {
+      for (int i = 0; i < idist; i++)
+        printf (" %8.1f", z[j*idist+i]);
+      printf ("\n");
+    }
 
 
   return 0;
