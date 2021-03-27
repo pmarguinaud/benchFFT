@@ -38,7 +38,7 @@ inline void __cufftSafeCall (cufftResult err, const char * file, const int line)
 int main (int argc, char * argv[])
 {
 
-  if (argc < 7)
+  if (argc < 8)
     {
       fprintf (stderr, "Usage: %s N LOT istride ostride idist odist\n", argv[0]);
       return 1;
@@ -50,6 +50,7 @@ int main (int argc, char * argv[])
   int ostride = atoi (argv[4]);
   int idist   = atoi (argv[5]);
   int odist   = atoi (argv[6]);
+  int llprint = atoi (argv[7]);
 
   cufftHandle plan;
 
@@ -65,7 +66,8 @@ int main (int argc, char * argv[])
 
   cufftSafeCall (cufftPlanMany (&plan, 1, &N, embed, istride, idist, embed, ostride, odist, CUFFT_D2Z, LOT));
 
-  printf (" N = %d\n", N);
+  if (llprint)
+  printf (" N = %d, LOT = %d, istride = %d, ostride = %d, idist = %d, odist = %d\n", N, LOT, istride, ostride, idist, odist);
 
   if (cudaDeviceSynchronize () != cudaSuccess)
     {
@@ -79,6 +81,7 @@ int main (int argc, char * argv[])
   for (int i = 0; i < idist; i++)
     z[j*idist+i] = (i >= N) ? 9999. : (i %2) ? +1. : -1.;
 
+  if (llprint)
   for (int j = 0; j < LOT; j++)
     {
       for (int i = 0; i < idist; i++)
@@ -98,6 +101,7 @@ int main (int argc, char * argv[])
 
   cudaMemcpy (z, data, sz, cudaMemcpyDeviceToHost);
 
+  if (llprint)
   for (int j = 0; j < LOT; j++)
     {
       for (int i = 0; i < idist; i++)
