@@ -37,8 +37,19 @@ inline void __cufftSafeCall (cufftResult err, const char * file, const int line)
 
 int main (int argc, char * argv[])
 {
-  int N = 20;
-  int LOT = 6;
+
+  if (argc < 7)
+    {
+      fprintf (stderr, "Usage: %s N LOT istride ostride idist odist\n", argv[0]);
+      return 1;
+    }
+
+  int N       = atoi (argv[1]);
+  int LOT     = atoi (argv[2]);
+  int istride = atoi (argv[3]);
+  int ostride = atoi (argv[4]);
+  int idist   = atoi (argv[5]);
+  int odist   = atoi (argv[6]);
 
   cufftHandle plan;
 
@@ -48,15 +59,11 @@ int main (int argc, char * argv[])
       return 1;	
     }
 
-
   int embed[1] = {1};
-  int stride = 1;
-  int dist = 26;
-
 
   cufftSafeCall (cufftCreate (&plan));
 
-  cufftSafeCall (cufftPlanMany (&plan, 1, &N, embed, stride, dist, embed, stride, dist/2, CUFFT_D2Z, LOT));
+  cufftSafeCall (cufftPlanMany (&plan, 1, &N, embed, istride, idist, embed, ostride, odist, CUFFT_D2Z, LOT));
 
   printf (" N = %d\n", N);
 
@@ -66,31 +73,33 @@ int main (int argc, char * argv[])
       return 1;	
     }
 
-  double z[LOT][dist];
+  double * z = (double *)malloc (sizeof (double) * LOT * idist);
 
   for (int j = 0; j < LOT; j++)
-  for (int i = 0; i < dist; i++)
-    z[j][i] = (i >= N) ? 9999. : (i %2) ? +1. : -1.;
+  for (int i = 0; i < idist; i++)
+    z[j*idist+i] = (i >= N) ? 9999. : (i %2) ? +1. : -1.;
 
   for (int j = 0; j < LOT; j++)
-  for (int i = 0; i < dist; i++)
-    printf (" %2d %2d %12.4f\n", j, i, z[j][i]);
+  for (int i = 0; i < idist; i++)
+    printf (" %2d %2d %12.4f\n", j, i, z[j*idist+i]);
 
   printf ("------------\n");
 
   cufftDoubleComplex * data = NULL;
 
-  cudaMalloc ((void**)&data, sizeof (z));
+  size_t sz = sizeof (double) * LOT * idist;
 
-  cudaMemcpy (data, z, sizeof (z), cudaMemcpyHostToDevice);
+  cudaMalloc ((void**)&data, sz);
+
+  cudaMemcpy (data, z, sz, cudaMemcpyHostToDevice);
 
   cufftSafeCall (cufftExecD2Z (plan, (cufftDoubleReal*)data, data));
 
-  cudaMemcpy (z, data, sizeof (z), cudaMemcpyDeviceToHost);
+  cudaMemcpy (z, data, sz, cudaMemcpyDeviceToHost);
 
   for (int j = 0; j < LOT; j++)
-  for (int i = 0; i < dist; i++)
-    printf (" %2d %2d %12.4f\n", j, i, z[j][i]);
+  for (int i = 0; i < idist; i++)
+    printf (" %2d %2d %12.4f\n", j, i, z[j*idist+i]);
 
 
   return 0;
