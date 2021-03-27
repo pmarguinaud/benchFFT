@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <time.h>
 
 #define cufftSafeCall(err) __cufftSafeCall (err, __FILE__, __LINE__)
 
@@ -39,9 +40,9 @@ inline void __cufftSafeCall (cufftResult err, const char * file, const int line)
 int main (int argc, char * argv[])
 {
 
-  if (argc < 9)
+  if (argc < 10)
     {
-      fprintf (stderr, "Usage: %s N LOT istride ostride idist odist llprint kfunc\n", argv[0]);
+      fprintf (stderr, "Usage: %s N LOT istride ostride idist odist llprint kfunc ntime\n", argv[0]);
       return 1;
     }
 
@@ -53,6 +54,7 @@ int main (int argc, char * argv[])
   int odist   = atoi (argv[6]);
   int llprint = atoi (argv[7]);
   int kfunc   = atoi (argv[8]);
+  int ntime   = atoi (argv[9]);
 
   assert ((istride == 1) || (idist == 1));
   assert ((ostride == 1) || (odist == 1));
@@ -126,7 +128,13 @@ int main (int argc, char * argv[])
 
   cudaMemcpy (data, z, sz * sizeof (double), cudaMemcpyHostToDevice);
 
-  cufftSafeCall (cufftExecD2Z (plan, (cufftDoubleReal*)data, data));
+
+  clock_t t0 = clock ();
+  for (int itime = 0; itime < ntime; itime++)
+    cufftSafeCall (cufftExecD2Z (plan, (cufftDoubleReal*)data, data));
+  clock_t t1 = clock ();
+
+  printf (" sz = %ld, dt = %f\n", sz, (double)(t1-t0)/1e+6);
 
   cudaMemcpy (z, data, sz * sizeof (double), cudaMemcpyDeviceToHost);
 

@@ -2,4 +2,23 @@
 
 set -x
 
-./benchFFT.x 20 6 1 1 22 11 2 1
+
+if [ 0 -eq 1 ]
+then
+N=20
+L=6
+let "DIST1=$N+2"
+let "DIST2=$DIST1/2"
+P=2
+
+nvprof ./benchFFT.x $N $L 1 1 $DIST1 $DIST2 $P 1 1
+fi
+
+N=4000
+L=100000
+let "DIST1=$N+2"
+let "DIST2=$DIST1/2"
+P=0
+
+nvprof ./benchFFT.x $N $L 1 1 $DIST1 $DIST2 $P 1 10
+
