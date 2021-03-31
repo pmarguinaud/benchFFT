@@ -40,9 +40,9 @@ inline void __cufftSafeCall (cufftResult err, const char * file, const int line)
 int main (int argc, char * argv[])
 {
 
-  if (argc < 10)
+  if (argc < 11)
     {
-      fprintf (stderr, "Usage: %s N LOT istride ostride idist odist llprint kfunc ntime\n", argv[0]);
+      fprintf (stderr, "Usage: %s N LOT istride ostride idist odist llprint kfunc ntime nbatch\n", argv[0]);
       return 1;
     }
 
@@ -55,6 +55,7 @@ int main (int argc, char * argv[])
   int llprint = atoi (argv[7]);
   int kfunc   = atoi (argv[8]);
   int ntime   = atoi (argv[9]);
+  int nbatch  = atoi (argv[10]);
 
   assert ((istride == 1) || (idist == 1));
   assert ((ostride == 1) || (odist == 1));
@@ -67,14 +68,15 @@ int main (int argc, char * argv[])
       return 1;	
     }
 
+  if (llprint)
+  printf (" N = %d, LOT = %d, istride = %d, ostride = %d, idist = %d, odist = %d, ntime = %d, nbatch = %d\n", N, LOT, istride, ostride, idist, odist, ntime, nbatch);
+
+
   int embed[1] = {1};
 
   cufftSafeCall (cufftCreate (&plan));
 
-  cufftSafeCall (cufftPlanMany (&plan, 1, &N, embed, istride, idist, embed, ostride, odist, CUFFT_D2Z, LOT));
-
-  if (llprint)
-  printf (" N = %d, LOT = %d, istride = %d, ostride = %d, idist = %d, odist = %d\n", N, LOT, istride, ostride, idist, odist);
+  cufftSafeCall (cufftPlanMany (&plan, 1, &N, embed, istride, idist, embed, ostride, odist, CUFFT_D2Z, LOT / nbatch));
 
   if (cudaDeviceSynchronize () != cudaSuccess)
     {
@@ -122,16 +124,28 @@ int main (int argc, char * argv[])
       if ((((i + 1) % 20) == 0) || (i == sz - 1)) printf ("\n");
     }
 
-  cufftDoubleComplex * data = NULL;
+  cufftDoubleReal * data = NULL;
 
   cudaMalloc ((void**)&data, sz * sizeof (double));
 
   cudaMemcpy (data, z, sz * sizeof (double), cudaMemcpyHostToDevice);
 
+  int bsize = idist * (LOT / nbatch);
 
   clock_t t0 = clock ();
   for (int itime = 0; itime < ntime; itime++)
-    cufftSafeCall (cufftExecD2Z (plan, (cufftDoubleReal*)data, data));
+    {
+      for (int ibatch = 0; ibatch < nbatch; ibatch++)
+        {
+          cufftDoubleReal * d = data + bsize * ibatch;
+          cufftSafeCall (cufftExecD2Z (plan, d, (cufftDoubleComplex*)d));
+        }
+      if (cudaDeviceSynchronize () != cudaSuccess)
+        {
+          fprintf (stderr, "Cuda error: Failed to synchronize\n");
+          return 1;
+        } 
+    }
   clock_t t1 = clock ();
 
   printf (" sz = %ld, dt = %f\n", sz, (double)(t1-t0)/1e+6);

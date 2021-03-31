@@ -28,5 +28,5 @@ let "DIST1=$N+2"
 let "DIST2=$DIST1/2"
 P=0
 
-nvprof ./benchFFT.x $N $L 1 1 $DIST1 $DIST2 $P 1 10000
+nvprof ./benchFFT.x $N $L 1 1 $DIST1 $DIST2 $P 1 1000
 
