@@ -129,12 +129,15 @@ int main (int argc, char * argv[])
   cudaMemcpy (data, z, sz * sizeof (double), cudaMemcpyHostToDevice);
 
 
-  clock_t t0 = clock ();
+  struct timespec t0, t1;
+  clock_gettime (CLOCK_REALTIME, &t0);
+
   for (int itime = 0; itime < ntime; itime++)
     cufftSafeCall (cufftExecD2Z (plan, (cufftDoubleReal*)data, data));
-  clock_t t1 = clock ();
 
-  printf (" sz = %ld, dt = %f\n", sz, (double)(t1-t0)/1e+6);
+  clock_gettime (CLOCK_REALTIME, &t1);
+
+  printf (" sz = %ld, dt = %f\n", sz, (double)(t1.tv_sec - t0.tv_sec) + (double)(t1.tv_nsec - t0.tv_nsec) / 1e9);
 
   cudaMemcpy (z, data, sz * sizeof (double), cudaMemcpyDeviceToHost);
 
