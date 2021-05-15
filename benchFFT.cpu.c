@@ -1,41 +1,8 @@
-#include <cufft.h>
+#include <fftw3.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <time.h>
-
-#define cufftSafeCall(err) __cufftSafeCall (err, __FILE__, __LINE__)
-
-static const char *_cudaGetErrorEnum (cufftResult error)
-{
-  switch (error)
-    {
-#define cr(x) case CUFFT_##x: return #x
-      cr (SUCCESS);
-      cr (INVALID_PLAN);
-      cr (ALLOC_FAILED);
-      cr (INVALID_TYPE);
-      cr (INVALID_VALUE);
-      cr (INTERNAL_ERROR);
-      cr (EXEC_FAILED);
-      cr (SETUP_FAILED);
-      cr (INVALID_SIZE);
-      cr (UNALIGNED_DATA);
-#undef cr
-    }
-  return "UNKNOWN";
-}
-
-inline void __cufftSafeCall (cufftResult err, const char * file, const int line)
-{
-  if (CUFFT_SUCCESS != err) 
-    {
-      fprintf (stderr, "CUFFT error in file '%s'\n",__FILE__);
-      fprintf (stderr, "CUFFT error %d: %s\nterminating!\n", err, _cudaGetErrorEnum (err)); 
-      cudaDeviceReset (); 
-    }
-}
-
 
 int main (int argc, char * argv[])
 {
@@ -59,28 +26,14 @@ int main (int argc, char * argv[])
   assert ((istride == 1) || (idist == 1));
   assert ((ostride == 1) || (odist == 1));
 
-  cufftHandle plan;
-
-  if (cudaDeviceSynchronize() != cudaSuccess)
-    {
-      fprintf(stderr, "Cuda error: Failed to synchronize\n");
-      return 1;	
-    }
-
   int embed[1] = {1};
 
-  cufftSafeCall (cufftCreate (&plan));
-
-  cufftSafeCall (cufftPlanMany (&plan, 1, &N, embed, istride, idist, embed, ostride, odist, CUFFT_D2Z, LOT));
+  fftw_plan p = fftw_plan_many_dft_r2c 
+      (1, &N, 1, (double *)NULL, embed, istride, idist, (fftw_complex *)NULL, 
+       embed, ostride, odist, FFTW_ESTIMATE+FFTW_NO_SIMD);
 
   if (llprint)
   printf (" N = %d, LOT = %d, istride = %d, ostride = %d, idist = %d, odist = %d\n", N, LOT, istride, ostride, idist, odist);
-
-  if (cudaDeviceSynchronize () != cudaSuccess)
-    {
-      fprintf(stderr, "Cuda error: Failed to synchronize\n");
-      return 1;	
-    }
 
   size_t sz = LOT * idist + N * istride + 2 * LOT;
 
@@ -122,21 +75,12 @@ int main (int argc, char * argv[])
       if ((((i + 1) % 20) == 0) || (i == sz - 1)) printf ("\n");
     }
 
-  cufftDoubleComplex * data = NULL;
-
-  cudaMalloc ((void**)&data, sz * sizeof (double));
-
-  cudaMemcpy (data, z, sz * sizeof (double), cudaMemcpyHostToDevice);
-
-
   clock_t t0 = clock ();
-  for (int itime = 0; itime < ntime; itime++)
-    cufftSafeCall (cufftExecD2Z (plan, (cufftDoubleReal*)data, data));
+//for (int itime = 0; itime < ntime; itime++)
+//  fftw_execute_dft_r2c (p, z, (fftw_complex *)z);
   clock_t t1 = clock ();
 
-  printf (" sz = %ld, dt = %f\n", sz, (double)(t1-t0)/1e+6);
-
-  cudaMemcpy (z, data, sz * sizeof (double), cudaMemcpyDeviceToHost);
+//printf (" sz = %ld, dt = %f\n", sz, (double)(t1-t0)/1e+6);
 
   if (llprint == 1)
   for (int j = 0; j < LOT; j++)
@@ -152,7 +96,6 @@ int main (int argc, char * argv[])
       printf (" %8.1f", z[i]);
       if ((((i + 1) % 20) == 0) || (i == sz - 1)) printf ("\n");
     }
-
 
   return 0;
 }
