@@ -12,7 +12,7 @@ benchFFT.gpu.x: benchFFT.gpu.cu
            --linker-options "-rpath,$(PREFIX1)/lib64" --linker-options "-rpath,$(PREFIX2)/lib" --linker-options "-rpath,$(PREFIX3)/lib"
 
 benchFFT.cpu.x: benchFFT.cpu.c
-	icc  -o benchFFT.cpu.x -g benchFFT.cpu.c -lfftw3
+	icc  -DLINUX -qopenmp -o benchFFT.cpu.x -g benchFFT.cpu.c linux_bind.c -lfftw3
 
 clean:
 	\rm -f *.o *.x

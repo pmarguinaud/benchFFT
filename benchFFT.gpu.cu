@@ -134,7 +134,7 @@ int main (int argc, char * argv[])
     cufftSafeCall (cufftExecD2Z (plan, (cufftDoubleReal*)data, data));
   clock_t t1 = clock ();
 
-//printf (" sz = %ld, dt = %f\n", sz, (double)(t1-t0)/1e+6);
+  printf (" sz = %ld, dt = %f\n", sz, (double)(t1-t0)/1e+6);
 
   cudaMemcpy (z, data, sz * sizeof (double), cudaMemcpyDeviceToHost);
 

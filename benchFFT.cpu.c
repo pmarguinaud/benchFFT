@@ -23,6 +23,11 @@ int main (int argc, char * argv[])
   int kfunc   = atoi (argv[8]);
   int ntime   = atoi (argv[9]);
 
+  {
+  int rank = 0, size = 1;
+  linux_bind_ (&rank, &size);
+  }
+
   assert ((istride == 1) || (idist == 1));
   assert ((ostride == 1) || (odist == 1));
 
@@ -75,12 +80,22 @@ int main (int argc, char * argv[])
       if ((((i + 1) % 20) == 0) || (i == sz - 1)) printf ("\n");
     }
 
-  clock_t t0 = clock ();
-//for (int itime = 0; itime < ntime; itime++)
-//  fftw_execute_dft_r2c (p, z, (fftw_complex *)z);
-  clock_t t1 = clock ();
+  struct timespec t0, t1;
+  clock_gettime (CLOCK_REALTIME, &t0);
 
-//printf (" sz = %ld, dt = %f\n", sz, (double)(t1-t0)/1e+6);
+  for (int itime = 0; itime < ntime; itime++)
+    {
+#pragma omp parallel for
+      for (int j = 0; j < LOT; j++)
+        {
+          double * zj = &z[j*idist];
+          fftw_execute_dft_r2c (p, zj, (fftw_complex *)zj);
+        }
+    }
+
+  clock_gettime (CLOCK_REALTIME, &t1);
+
+  printf (" sz = %ld, dt = %f\n", sz, (double)(t1.tv_sec - t0.tv_sec) + (double)(t1.tv_nsec - t0.tv_nsec) / 1e9);
 
   if (llprint == 1)
   for (int j = 0; j < LOT; j++)

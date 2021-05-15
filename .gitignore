@@ -1,3 +1,4 @@
 *.o
 *.x
 *.a
+slurm-*.out
